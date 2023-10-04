@@ -1,0 +1,516 @@
+import { ARC3_URL_SUFFIX } from "../constants";
+import {
+  Arc3Arc19Metadata,
+  ConfigAsset,
+  CreateAssetTransactionConfig,
+  PinataPinOptions,
+  PinataPinResponse,
+  image_mimetype,
+  AnimationMediaFields,
+  ImageMediaFields,
+  animation_url_mimetype,
+  Arc69Metadata,
+} from "../types";
+import {
+  deriveIPFSHashProperties,
+  getSHA256Checksum,
+  getTypeFromMimeType,
+  setEmptyFieldsAsUndefined,
+  signArray,
+} from "../util";
+import { pinFileToIPFS, pinJSONToIPFS } from "../api/PinataIPFSClient";
+import { File } from "buffer";
+
+import algosdk, { Algodv2 } from "algosdk";
+import AlgoUtil from "@gradian/util";
+
+async function getARC3ARC19MediaFields({
+  file,
+  pinataOptions,
+  pinataJWT,
+}: {
+  file: File;
+  pinataOptions: PinataPinOptions;
+  pinataJWT: string;
+}): Promise<ImageMediaFields | AnimationMediaFields> {
+  // check if image
+  const mediaArrayBuffer = await file.arrayBuffer();
+  const mediaChecksum: string = await getSHA256Checksum(
+    Buffer.from(mediaArrayBuffer)
+  );
+
+  // create readable stream compatible with pinata, and pin to ipfs using pinata
+  const pinataResponse: PinataPinResponse = await pinFileToIPFS(
+    file,
+    pinataOptions,
+    pinataJWT
+  );
+  const mediaCID = pinataResponse.IpfsHash;
+
+  const mediaType = getTypeFromMimeType(file.type);
+  if (mediaType === "image") {
+    // image
+    const imageFields: ImageMediaFields = {
+      image: "ipfs://" + mediaCID,
+      image_integrity: "sha256-" + mediaChecksum,
+      image_mimetype: file.type as image_mimetype,
+    };
+    return imageFields;
+  } else {
+    // "animation", including video and audio
+    const animationFields: AnimationMediaFields = {
+      animation_url: "ipfs://" + mediaCID,
+      animation_url_integrity: "sha256-" + mediaChecksum,
+      animation_url_mimetype: file.type as animation_url_mimetype,
+    };
+    return animationFields;
+  }
+}
+
+/**
+ * Get the IPFS hash of the metadata JSON file, which is the metadata for the ARC3 ARC19 NFT.
+ * @param options
+ * @param file
+ * @param pinataJWT
+ * @returns
+ */
+async function getIPFSARC3ARC19MetadataHash(
+  options: Arc3Arc19Metadata,
+  file: File,
+  pinataJWT: string
+): Promise<string> {
+  const pinataOptions: PinataPinOptions = {
+    pinataOptions: {
+      cidVersion: 1,
+    },
+    pinataMetadata: {
+      name: options.name || "Untitled",
+    },
+  };
+  const mediaFields: AnimationMediaFields | ImageMediaFields =
+    await getARC3ARC19MediaFields({ file, pinataOptions, pinataJWT });
+
+  const metadata: Arc3Arc19Metadata = {
+    name: options.name,
+    description: options.description,
+    ...mediaFields,
+    external_url: options.external_url,
+    properties: options.properties || {},
+  };
+
+  // Pin metadata JSON to IPFS and get CID
+  const metadataPinataResponse: PinataPinResponse = await pinJSONToIPFS(
+    metadata,
+    pinataOptions,
+    pinataJWT
+  );
+
+  const pinataMetadataIPFSHash = metadataPinataResponse.IpfsHash;
+
+  return pinataMetadataIPFSHash;
+}
+
+
+export default class AssetMinter {
+  connector: any;
+  algoClient: Algodv2;
+  /**
+   * Initialise the Asset Minter
+   * @param {Algodv2} algoClient Algorand Client
+   * @param {any} walletConnectConnector WalletConnect Connector
+   **/
+  constructor(
+    algoClient: Algodv2,
+    walletConnectConnector: any = undefined,
+  ) {
+    this.connector = walletConnectConnector;
+    this.algoClient = algoClient;
+  }
+
+  /**
+   * Mints an ARC69 compliant NFT Asset, and returns its asset index if successful
+   * @param {CreateAssetTransactionConfig} createAssetConfig Create Asset Configuration
+   * @param {Arc69Metadata} options ARC69 Metadata (JSON to be pinned to IPFS)
+   * @param {File} file File to be pinned to IPFS
+   * @param {string} pinataJWT Pinata JWT
+   * @returns {Promise<number>} The minted asset index
+   */
+  async minterCreateArc69Asset({
+    createAssetConfig,
+    options,
+    file,
+    pinataJWT,
+  }: {
+    createAssetConfig: CreateAssetTransactionConfig;
+    options: Arc69Metadata;
+    file: File;
+    pinataJWT: string;
+  }): Promise<number> {
+    const walletId = this.getConnectedWallet();
+    if (!walletId) {
+      throw new Error("Wallet not given");
+    }
+
+    const pinataOptions: PinataPinOptions = {
+      pinataOptions: {
+        cidVersion: 1,
+      },
+      pinataMetadata: {
+        name: options.name || "Untitled",
+      },
+    };
+
+    // check if image
+    const mediaArrayBuffer = await file.arrayBuffer();
+    const mediaChecksum: string = await getSHA256Checksum(
+      Buffer.from(mediaArrayBuffer)
+    );
+
+    // create readable stream compatible with pinata, and pin to ipfs using pinata
+    const pinataResponse: PinataPinResponse = await pinFileToIPFS(
+      file,
+      pinataOptions,
+      pinataJWT
+    );
+    const mediaCID = pinataResponse.IpfsHash;
+
+    // prefil media integrity and media mimetype
+    options.media_integrity = "sha256-" + mediaChecksum;
+    options.mime_type = (file.type || "image/png") as
+      | image_mimetype
+      | animation_url_mimetype;
+    createAssetConfig = setEmptyFieldsAsUndefined(createAssetConfig);
+
+    const algoUtil = new AlgoUtil(this.algoClient);
+    const arc69Mimetype = algoUtil.getARC69MimetypeFromMediaMimeType(
+      options.mime_type
+    );
+    const url = `ipfs://${mediaCID}${arc69Mimetype}`;
+
+    let note: Uint8Array | undefined = undefined;
+    try {
+      const noteString = JSON.stringify(options);
+      note = new Uint8Array(Buffer.from(noteString));
+    } catch (e) {
+      console.log("error", e);
+    }
+    const creatorWallet = algoUtil.makeWallet(walletId);
+    const suggestedParams = await this.algoClient.getTransactionParams().do();
+    // manager must be set for updates to metadata to be allowed
+    const transaction = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject(
+      {
+        from: creatorWallet.addr,
+        assetName: createAssetConfig.assetName,
+        unitName: createAssetConfig.unitName,
+        assetURL: url,
+        manager: createAssetConfig.manager,
+        reserve: createAssetConfig.reserve,
+        freeze: createAssetConfig.freeze,
+        clawback: createAssetConfig.clawback,
+        decimals: createAssetConfig.decimals,
+        total: createAssetConfig.total,
+        suggestedParams,
+        note,
+        defaultFrozen: createAssetConfig.defaultFrozen,
+      }
+    );
+    const txns = await algoUtil.executeGroupTransaction(
+      [transaction],
+      [creatorWallet]
+    );
+    const txResponse = await signArray(this.connector, txns, this.algoClient);
+    return txResponse["asset-index"];
+  }
+
+  /**
+   * Mints an ARC19 compliant NFT Asset, and returns its asset index if successful
+   * @param {CreateAssetTransactionConfig} createAssetConfig Create Asset Configuration
+   * @param {Arc3Arc19Metadata} options ARC19 Metadata (JSON to be pinned to IPFS)
+   * @param {File} file File to be pinned to IPFS
+   * @param {string} pinataJWT Pinata JWT
+   * @returns {Promise<number>} The minted asset index
+   */
+  async minterCreateArc19Asset({
+    createAssetConfig,
+    options,
+    file,
+    pinataJWT,
+  }: {
+    createAssetConfig: CreateAssetTransactionConfig;
+    options: Arc3Arc19Metadata;
+    file: File;
+    pinataJWT: string;
+  }): Promise<number> {
+    const walletId = this.getConnectedWallet();
+    if (!walletId) {
+      throw new Error("Wallet not given");
+    }
+
+    const pinataMetadataIPFSHash = await getIPFSARC3ARC19MetadataHash(
+      options,
+      file,
+      pinataJWT
+    );
+    createAssetConfig = setEmptyFieldsAsUndefined(createAssetConfig);
+    const algoUtil = new AlgoUtil(this.algoClient);
+    const creatorWallet = algoUtil.makeWallet(walletId);
+
+    const ipfsHashProperties = deriveIPFSHashProperties(pinataMetadataIPFSHash);
+
+    const url = `template-ipfs://{ipfscid:${ipfsHashProperties.version}:${ipfsHashProperties.codec}:reserve:sha2-256}`;
+
+    const suggestedParams = await this.algoClient.getTransactionParams().do();
+
+    // manager must be set for updates to metadata to be allowed
+    const transaction = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject(
+      {
+        from: creatorWallet.addr,
+        assetName: createAssetConfig.assetName,
+        unitName: createAssetConfig.unitName,
+        assetURL: url,
+        manager: createAssetConfig.manager,
+        reserve: ipfsHashProperties.CIDBase64HashDigest,
+        freeze: createAssetConfig.freeze,
+        clawback: createAssetConfig.clawback,
+        decimals: createAssetConfig.decimals,
+        total: createAssetConfig.total,
+        suggestedParams,
+        defaultFrozen: createAssetConfig.defaultFrozen,
+      }
+    );
+    const txns = await algoUtil.executeGroupTransaction(
+      [transaction],
+      [creatorWallet]
+    );
+    const txResponse = await signArray(this.connector, txns, this.algoClient);
+
+    return txResponse["asset-index"];
+  }
+
+  /**
+   * Mints an ARC3 compliant NFT Asset, and returns its asset index if successful
+   * @param {CreateAssetTransactionConfig} createAssetConfig Create Asset Configuration
+   * @param {Arc3Arc19Metadata} options ARC3 Metadata (JSON to be pinned to IPFS)
+   * @param {File} file File to be pinned to IPFS
+   * @param {string} pinataJWT Pinata JWT
+   * @returns {Promise<number>} The minted asset index
+   */
+  async minterCreateArc3Asset({
+    createAssetConfig,
+    options,
+    file,
+    pinataJWT,
+  }: {
+    createAssetConfig: CreateAssetTransactionConfig;
+    options: Arc3Arc19Metadata;
+    file: File;
+    pinataJWT: string;
+  }): Promise<number> {
+    const walletId = this.getConnectedWallet();
+    if (!walletId) {
+      throw new Error("Wallet not given");
+    }
+
+    const pinataMetadataIPFSHash = await getIPFSARC3ARC19MetadataHash(
+      options,
+      file,
+      pinataJWT
+    );
+
+    createAssetConfig = setEmptyFieldsAsUndefined(createAssetConfig);
+
+    const url = `ipfs://${pinataMetadataIPFSHash}${ARC3_URL_SUFFIX}`;
+    const algoUtil = new AlgoUtil(this.algoClient);
+    const creatorWallet = algoUtil.makeWallet(walletId);
+    const suggestedParams = await this.algoClient.getTransactionParams().do();
+    // manager must be set for updates to metadata to be allowed
+    const transaction = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject(
+      {
+        from: creatorWallet.addr,
+        assetName: createAssetConfig.assetName,
+        unitName: createAssetConfig.unitName,
+        assetURL: url,
+        manager: createAssetConfig.manager,
+        reserve: createAssetConfig.reserve,
+        freeze: createAssetConfig.freeze,
+        clawback: createAssetConfig.clawback,
+        decimals: createAssetConfig.decimals,
+        total: createAssetConfig.total,
+        suggestedParams,
+        defaultFrozen: createAssetConfig.defaultFrozen,
+      }
+    );
+    const txns = await algoUtil.executeGroupTransaction(
+      [transaction],
+      [creatorWallet]
+    );
+    const txResponse = await signArray(this.connector, txns, this.algoClient);
+    return txResponse["asset-index"];
+  }
+
+  /**
+   * Configures an existing ARC19 compliant NFT Asset
+   * @param {ConfigAsset} assetConfig Config Asset Options (e.g. new name, manager, etc.)
+   * @param {Arc3Arc19Metadata} options new ARC19 Metadata (JSON to be pinned to IPFS)
+   * @param {File} file File to be pinned to IPFS
+   * @param {string} pinataJWT Pinata JWT
+   * @returns {Promise<void>}
+   */
+  async minterConfigArc19Asset({
+    assetConfig,
+    options,
+    file,
+    pinataJWT,
+  }: {
+    assetConfig: ConfigAsset;
+    options: Arc3Arc19Metadata;
+    file: File;
+    pinataJWT: string;
+  }) {
+    const walletId = this.getConnectedWallet();
+    if (!walletId) {
+      throw new Error("Wallet not given");
+    }
+
+    const pinataMetadataIPFSHash = await getIPFSARC3ARC19MetadataHash(
+      options,
+      file,
+      pinataJWT
+    );
+
+    assetConfig = setEmptyFieldsAsUndefined(assetConfig);
+
+    const suggestedParams: algosdk.SuggestedParams = await this.algoClient
+      .getTransactionParams()
+      .do();
+    const algoUtil = new AlgoUtil(this.algoClient);
+    const creatorWallet = algoUtil.makeWallet(walletId);
+    let configObj = {
+      suggestedParams,
+      ...assetConfig,
+    };
+
+    if (pinataMetadataIPFSHash) {
+      const ipfsHashProperties = deriveIPFSHashProperties(
+        pinataMetadataIPFSHash
+      );
+
+      configObj = {
+        ...configObj,
+        reserve: ipfsHashProperties.CIDBase64HashDigest,
+        strictEmptyAddressChecking: false,
+      };
+    }
+
+    const transaction =
+      algosdk.makeAssetConfigTxnWithSuggestedParamsFromObject(configObj);
+    const txns = await algoUtil.executeGroupTransaction(
+      [transaction],
+      [creatorWallet]
+    );
+
+    await signArray(this.connector, txns, this.algoClient);
+  }
+
+  /**
+   * Configures an existing ARC3 compliant NFT Asset
+   * @param {ConfigAsset} assetConfig Config Asset Options (e.g. new name, manager, etc.)
+   * @returns {Promise<void>}
+   */
+  async minterConfigArc3Asset({ assetConfig }: { assetConfig: ConfigAsset }) {
+    const walletId = this.getConnectedWallet();
+    if (!walletId) {
+      throw new Error("Wallet not given");
+    }
+
+    assetConfig = setEmptyFieldsAsUndefined(assetConfig);
+    const suggestedParams: algosdk.SuggestedParams = await this.algoClient
+      .getTransactionParams()
+      .do();
+    let configObj = {
+      suggestedParams,
+      ...assetConfig,
+      strictEmptyAddressChecking: false,
+    };
+    const algoUtil = new AlgoUtil(this.algoClient);
+    const creatorWallet = algoUtil.makeWallet(walletId);
+    const transaction =
+      algosdk.makeAssetConfigTxnWithSuggestedParamsFromObject(configObj);
+    const txns = await algoUtil.executeGroupTransaction(
+      [transaction],
+      [creatorWallet]
+    );
+
+    await signArray(this.connector, txns, this.algoClient);
+  }
+
+  /**
+   * Configures an existing ARC69 compliant NFT Asset
+   * @param {ConfigAsset} assetConfig Config Asset Options (e.g. new name, manager, etc.)
+   * @param {Arc69Metadata} options new ARC69 Metadata (JSON to be pinned to IPFS)
+   * @returns {Promise<void>}
+   */
+  async minterConfigArc69Asset({
+    assetConfig,
+    options,
+  }: {
+    assetConfig: ConfigAsset;
+    options: Arc69Metadata;
+  }) {
+    const walletId = this.getConnectedWallet();
+    if (!walletId) {
+      throw new Error("Wallet not given");
+    }
+
+    assetConfig = setEmptyFieldsAsUndefined(assetConfig);
+    const algoUtil = new AlgoUtil(this.algoClient);
+    const creatorWallet = algoUtil.makeWallet(walletId);
+
+    const suggestedParams: algosdk.SuggestedParams = await this.algoClient
+      .getTransactionParams()
+      .do();
+    let note: Uint8Array | undefined = undefined;
+    try {
+      const noteString = JSON.stringify(options);
+      note = new Uint8Array(Buffer.from(noteString));
+    } catch (e) {
+      console.log("error", e);
+    }
+
+    let configObj = {
+      suggestedParams,
+      ...assetConfig,
+      note,
+      strictEmptyAddressChecking: false,
+    };
+
+    const transaction =
+      algosdk.makeAssetConfigTxnWithSuggestedParamsFromObject(configObj);
+    const txns = await algoUtil.executeGroupTransaction(
+      [transaction],
+      [creatorWallet]
+    );
+    await signArray(this.connector, txns, this.algoClient);
+  }
+
+  /**
+   * Get the connected wallet
+   * @returns {string} The wallet address of the connected wallet
+   */
+  getConnectedWallet() {
+    if (!this.connector) {
+      return;
+    }
+    if (!this.connector?.accounts) {
+      return;
+    }
+    if (this.connector.accounts.length <= 0) {
+      return;
+    }
+    if (!this.connector.connected) {
+      return;
+    }
+    const walletId = this.connector.accounts[0];
+    return walletId;
+  }
+}
