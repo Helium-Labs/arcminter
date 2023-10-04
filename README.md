@@ -22,10 +22,10 @@ npm install @gradian/arcminter
 Below is a demonstration for minting an ARC3 digital asset. However, the procedure for ARC19 and ARC69 is analogous. The code is thoroughly documented for clarity.
 
 ```typescript
-// Create Minter instance, providing the algoClient and Wallet Connect connector
+// Instantiate the Minter, providing both algoClient and WalletConnect connector.
 const assetCreator = new NFTAssetMinter(algoClient, walletConnect.connector)
 
-// Values is an object, for example represent form fields
+// 'values' represents an object, possibly corresponding to form fields.
 const createAssetConfig: CreateAssetTransactionConfig = {
     assetName: values.assetName,
     unitName: values.unitName,
@@ -39,7 +39,7 @@ const createAssetConfig: CreateAssetTransactionConfig = {
 }
 const file: File = values.files[0]
 
-// JSON metadata to be pinned to IPFS (via Pinata, idempotent in the future)
+// JSON metadata set to be pinned to IPFS (through Pinata), aiming for idempotence in future versions.
 const options: Arc3Arc19Metadata = {
     description: values.description,
     name: values.assetName,
@@ -48,7 +48,7 @@ const options: Arc3Arc19Metadata = {
     network: 'testnet' as 'testnet' | 'mainnet'
 }
 
-// Mint the asset, with the index returned if successful. The provided walletConnect connector is the creator and is used for signing the asset creation transaction.
+// Mint the asset. If successful, the index is returned. The provided walletConnect connector acts as the creator and is utilized for the asset creation transaction signature.
 const mintedAssetIndex = await assetCreator.minterCreateArc3Asset({
     createAssetConfig,
     options,
