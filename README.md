@@ -1,6 +1,6 @@
 # Gradian Arcminter
 
-Gradian Arcminter is a utility designed to mint ARC 3, 19, and 69 compliant non-fungible digital assets (commonly referred to as NFTs) on the Algorand blockchain, accommodating a variety of media types. While it is primarily tailored for browsers and supports the ESM module, it can also compile to CJS and is compatible with Node.
+Gradian Arcminter is a utility for minting and configuring ARC 3, 19, and 69 compliant non-fungible digital assets (NFTs) on the Algorand blockchain with support a wide range of media types. The IPFS pinning service is dependency injected, and is generic. An IPFS client for Pinata is provided, with plans to add more overtime. It's primarily for browser use, however is also compatible with Node through polyfilling shims. ESM and CJS modules are provided in the built version. 
 
 ⭐ Stars ⭐ and contributions are highly appreciated.
 
@@ -12,20 +12,20 @@ npm install @gradian/arcminter
 
 ## Features
 
-- Capability to create ARC 3, 19, and 69 compliant NFTs and register them on the Algorand blockchain's public ledger.
-- Utilizes IPFS for decentralized file storage and currently depends on Pinata, a service dedicated to pinning files to IPFS. Subsequent versions may offer the use of a general IPFS pinning service, ensuring pinning service idempotence.
-- Seamless wallet integration for transaction signatures via WalletConnect, supplied as an injected dependency during ARC Minter instantiation.
-- Offers utility functions designed for extracting and managing NFT metadata.
+- Mint and configure ARC 3, 19, and 69 compliant NFTs and register them on the Algorand blockchain's public ledger.
+- Utilizes IPFS for decentralized file storage. Provides a client for Pinata, where other clients can be easily added and injected as a dependency. See example below.
+- Transaction signatures via WalletConnect, supplied as an injected dependency during ARC Minter instantiation. Intention to allow signing through a generic signer interface, which would allow other methods of signing like with a local pair of ECC keys.
 
 ## Usage
 
-Below is a demonstration for minting an ARC3 digital asset. However, the procedure for ARC19 and ARC69 is analogous. The code is thoroughly documented for clarity.
+Example given below shows the process of minting an ARC3 digital asset, which should be similar for other types of asset. The code is thoroughly documented and typed for ease of use, and should be intuitive to follow.
 
 ```typescript
-// Create Minter instance, providing the algoClient and Wallet Connect connector
 const assetCreator = new NFTAssetMinter(algoClient, walletConnect.connector)
+import AssetMinter from "@gradian/arcminter";
+import { PinataPinOptions, PinataIPFSClient } from "@gradian/arcminter/api/types";
 
-// Values is an object, for example represent form fields
+// Values is an object, for example representing form fields
 const createAssetConfig: CreateAssetTransactionConfig = {
     assetName: values.assetName,
     unitName: values.unitName,
@@ -37,6 +37,7 @@ const createAssetConfig: CreateAssetTransactionConfig = {
     clawback: values.clawbackAddress,
     reserve: values.reserveAddress
 }
+
 const file: File = values.files[0]
 
 // JSON metadata to be pinned to IPFS (via Pinata, idempotent in the future)
@@ -48,14 +49,29 @@ const options: Arc3Arc19Metadata = {
     network: 'testnet' as 'testnet' | 'mainnet'
 }
 
+// Create an instance of your preferred pinning service
+const pinata = new PinataIPFSClient("your_jwt");
+
+// inject the pinning service as a dependency into the arc minter
+// walletConnectConnector is a connector object from Wallet Connect, which is used for signing transactions
+const assetMinter = new AssetMinter(this.algoClient, pinata, walletConnectConnector)
+// Create options that are specific to the pinning service, and provide to the pinned file when minting
+const pinataOptions: PinataPinOptions = {
+    pinataOptions: {
+    cidVersion: 1,
+    },
+    pinataMetadata: {
+    name: "Untitled",
+    },
+};
+
 // Mint the asset, with the index returned if successful. The provided walletConnect connector is the creator and is used for signing the asset creation transaction.
-const mintedAssetIndex = await assetCreator.minterCreateArc3Asset({
+const mintedAssetIndex = await assetMinter.minterCreateArc3Asset(
     createAssetConfig,
     options,
     file,
-    pinataJWT,
-    isMainnet: network.getIsMainnet()
-})
+    pinataOptions
+)
 ```
 
 ## ARC3, ARC19, and ARC69 Algorand Request for Comment Standards
