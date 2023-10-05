@@ -40,7 +40,7 @@ const createAssetConfig: CreateAssetTransactionConfig = {
 
 const file: File = values.files[0]
 
-// JSON metadata to be pinned to IPFS (via Pinata, idempotent in the future)
+// JSON metadata set to be pinned to IPFS (through Pinata), aiming for idempotence in future versions.
 const options: Arc3Arc19Metadata = {
     description: values.description,
     name: values.assetName,
