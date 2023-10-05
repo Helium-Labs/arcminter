@@ -3,8 +3,6 @@ import {
   Arc3Arc19Metadata,
   ConfigAsset,
   CreateAssetTransactionConfig,
-  PinataPinOptions,
-  PinataPinResponse,
   image_mimetype,
   AnimationMediaFields,
   ImageMediaFields,
@@ -18,102 +16,17 @@ import {
   setEmptyFieldsAsUndefined,
   signArray,
 } from "../util";
-import { pinFileToIPFS, pinJSONToIPFS } from "../api/PinataIPFSClient";
 import { File } from "buffer";
 
 import algosdk, { Algodv2 } from "algosdk";
 import AlgoUtil from "@gradian/util";
+import { IPFSPinningService } from "../api/types";
 
-async function getARC3ARC19MediaFields({
-  file,
-  pinataOptions,
-  pinataJWT,
-}: {
-  file: File;
-  pinataOptions: PinataPinOptions;
-  pinataJWT: string;
-}): Promise<ImageMediaFields | AnimationMediaFields> {
-  // check if image
-  const mediaArrayBuffer = await file.arrayBuffer();
-  const mediaChecksum: string = await getSHA256Checksum(
-    Buffer.from(mediaArrayBuffer)
-  );
-
-  // create readable stream compatible with pinata, and pin to ipfs using pinata
-  const pinataResponse: PinataPinResponse = await pinFileToIPFS(
-    file,
-    pinataOptions,
-    pinataJWT
-  );
-  const mediaCID = pinataResponse.IpfsHash;
-
-  const mediaType = getTypeFromMimeType(file.type);
-  if (mediaType === "image") {
-    // image
-    const imageFields: ImageMediaFields = {
-      image: "ipfs://" + mediaCID,
-      image_integrity: "sha256-" + mediaChecksum,
-      image_mimetype: file.type as image_mimetype,
-    };
-    return imageFields;
-  } else {
-    // "animation", including video and audio
-    const animationFields: AnimationMediaFields = {
-      animation_url: "ipfs://" + mediaCID,
-      animation_url_integrity: "sha256-" + mediaChecksum,
-      animation_url_mimetype: file.type as animation_url_mimetype,
-    };
-    return animationFields;
-  }
-}
-
-/**
- * Get the IPFS hash of the metadata JSON file, which is the metadata for the ARC3 ARC19 NFT.
- * @param options
- * @param file
- * @param pinataJWT
- * @returns
- */
-async function getIPFSARC3ARC19MetadataHash(
-  options: Arc3Arc19Metadata,
-  file: File,
-  pinataJWT: string
-): Promise<string> {
-  const pinataOptions: PinataPinOptions = {
-    pinataOptions: {
-      cidVersion: 1,
-    },
-    pinataMetadata: {
-      name: options.name || "Untitled",
-    },
-  };
-  const mediaFields: AnimationMediaFields | ImageMediaFields =
-    await getARC3ARC19MediaFields({ file, pinataOptions, pinataJWT });
-
-  const metadata: Arc3Arc19Metadata = {
-    name: options.name,
-    description: options.description,
-    ...mediaFields,
-    external_url: options.external_url,
-    properties: options.properties || {},
-  };
-
-  // Pin metadata JSON to IPFS and get CID
-  const metadataPinataResponse: PinataPinResponse = await pinJSONToIPFS(
-    metadata,
-    pinataOptions,
-    pinataJWT
-  );
-
-  const pinataMetadataIPFSHash = metadataPinataResponse.IpfsHash;
-
-  return pinataMetadataIPFSHash;
-}
-
-
-export default class AssetMinter {
+export default class AssetMinter<TOptions> {
   connector: any;
   algoClient: Algodv2;
+  pinningService: IPFSPinningService<TOptions>;
+
   /**
    * Initialise the Asset Minter
    * @param {Algodv2} algoClient Algorand Client
@@ -121,10 +34,83 @@ export default class AssetMinter {
    **/
   constructor(
     algoClient: Algodv2,
-    walletConnectConnector: any = undefined,
+    pinningService: IPFSPinningService<TOptions>,
+    walletConnectConnector: any = undefined
   ) {
     this.connector = walletConnectConnector;
     this.algoClient = algoClient;
+    this.pinningService = pinningService;
+  }
+
+  async getARC3ARC19MediaFields({
+    file,
+    pinningOptions,
+  }: {
+    file: File;
+    pinningOptions: TOptions;
+  }): Promise<ImageMediaFields | AnimationMediaFields> {
+    // check if image
+    const mediaArrayBuffer = await file.arrayBuffer();
+    const mediaChecksum: string = await getSHA256Checksum(
+      Buffer.from(mediaArrayBuffer)
+    );
+
+    // create readable stream compatible with pinata, and pin to ipfs using pinata
+    const mediaCID: string = await this.pinningService.pinFileToIPFS(
+      file,
+      pinningOptions
+    );
+
+    const mediaType = getTypeFromMimeType(file.type);
+    if (mediaType === "image") {
+      // image
+      const imageFields: ImageMediaFields = {
+        image: "ipfs://" + mediaCID,
+        image_integrity: "sha256-" + mediaChecksum,
+        image_mimetype: file.type as image_mimetype,
+      };
+      return imageFields;
+    } else {
+      // "animation", including video and audio
+      const animationFields: AnimationMediaFields = {
+        animation_url: "ipfs://" + mediaCID,
+        animation_url_integrity: "sha256-" + mediaChecksum,
+        animation_url_mimetype: file.type as animation_url_mimetype,
+      };
+      return animationFields;
+    }
+  }
+
+  /**
+   * Get the IPFS hash of the metadata JSON file, which is the metadata for the ARC3 ARC19 NFT.
+   * @param options
+   * @param file
+   * @param pinataJWT
+   * @returns
+   */
+  async getIPFSARC3ARC19MetadataHash(
+    options: Arc3Arc19Metadata,
+    file: File,
+    pinningOptions: TOptions
+  ): Promise<string> {
+    const mediaFields: AnimationMediaFields | ImageMediaFields =
+      await this.getARC3ARC19MediaFields({ file, pinningOptions });
+
+    const metadata: Arc3Arc19Metadata = {
+      name: options.name,
+      description: options.description,
+      ...mediaFields,
+      external_url: options.external_url,
+      properties: options.properties || {},
+    };
+
+    // Pin metadata JSON to IPFS and get CID
+    const metadataCID: string = await this.pinningService.pinJSONToIPFS(
+      metadata,
+      pinningOptions
+    );
+
+    return metadataCID;
   }
 
   /**
@@ -139,26 +125,17 @@ export default class AssetMinter {
     createAssetConfig,
     options,
     file,
-    pinataJWT,
+    pinningOptions,
   }: {
     createAssetConfig: CreateAssetTransactionConfig;
     options: Arc69Metadata;
     file: File;
-    pinataJWT: string;
+    pinningOptions: TOptions;
   }): Promise<number> {
     const walletId = this.getConnectedWallet();
     if (!walletId) {
       throw new Error("Wallet not given");
     }
-
-    const pinataOptions: PinataPinOptions = {
-      pinataOptions: {
-        cidVersion: 1,
-      },
-      pinataMetadata: {
-        name: options.name || "Untitled",
-      },
-    };
 
     // check if image
     const mediaArrayBuffer = await file.arrayBuffer();
@@ -167,12 +144,10 @@ export default class AssetMinter {
     );
 
     // create readable stream compatible with pinata, and pin to ipfs using pinata
-    const pinataResponse: PinataPinResponse = await pinFileToIPFS(
+    const mediaCID: string = await this.pinningService.pinFileToIPFS(
       file,
-      pinataOptions,
-      pinataJWT
+      pinningOptions
     );
-    const mediaCID = pinataResponse.IpfsHash;
 
     // prefil media integrity and media mimetype
     options.media_integrity = "sha256-" + mediaChecksum;
@@ -234,22 +209,22 @@ export default class AssetMinter {
     createAssetConfig,
     options,
     file,
-    pinataJWT,
+    pinningOptions,
   }: {
     createAssetConfig: CreateAssetTransactionConfig;
     options: Arc3Arc19Metadata;
     file: File;
-    pinataJWT: string;
+    pinningOptions: TOptions;
   }): Promise<number> {
     const walletId = this.getConnectedWallet();
     if (!walletId) {
       throw new Error("Wallet not given");
     }
 
-    const pinataMetadataIPFSHash = await getIPFSARC3ARC19MetadataHash(
+    const pinataMetadataIPFSHash = await this.getIPFSARC3ARC19MetadataHash(
       options,
       file,
-      pinataJWT
+      pinningOptions
     );
     createAssetConfig = setEmptyFieldsAsUndefined(createAssetConfig);
     const algoUtil = new AlgoUtil(this.algoClient);
@@ -299,22 +274,22 @@ export default class AssetMinter {
     createAssetConfig,
     options,
     file,
-    pinataJWT,
+    pinningOptions,
   }: {
     createAssetConfig: CreateAssetTransactionConfig;
     options: Arc3Arc19Metadata;
     file: File;
-    pinataJWT: string;
+    pinningOptions: TOptions;
   }): Promise<number> {
     const walletId = this.getConnectedWallet();
     if (!walletId) {
       throw new Error("Wallet not given");
     }
 
-    const pinataMetadataIPFSHash = await getIPFSARC3ARC19MetadataHash(
+    const pinataMetadataIPFSHash = await this.getIPFSARC3ARC19MetadataHash(
       options,
       file,
-      pinataJWT
+      pinningOptions
     );
 
     createAssetConfig = setEmptyFieldsAsUndefined(createAssetConfig);
@@ -360,22 +335,22 @@ export default class AssetMinter {
     assetConfig,
     options,
     file,
-    pinataJWT,
+    pinningOptions,
   }: {
     assetConfig: ConfigAsset;
     options: Arc3Arc19Metadata;
     file: File;
-    pinataJWT: string;
+    pinningOptions: TOptions;
   }) {
     const walletId = this.getConnectedWallet();
     if (!walletId) {
       throw new Error("Wallet not given");
     }
 
-    const pinataMetadataIPFSHash = await getIPFSARC3ARC19MetadataHash(
+    const pinataMetadataIPFSHash = await this.getIPFSARC3ARC19MetadataHash(
       options,
       file,
-      pinataJWT
+      pinningOptions
     );
 
     assetConfig = setEmptyFieldsAsUndefined(assetConfig);

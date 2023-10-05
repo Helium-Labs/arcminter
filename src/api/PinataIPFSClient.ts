@@ -1,4 +1,8 @@
-import { PinataPinOptions, PinataPinResponse } from "../types";
+import {
+  IPFSPinningService,
+  PinataPinOptions,
+  PinataPinResponse,
+} from "./types";
 import axios from "axios";
 import { pinataFilePinUrl, pinataJSONPinUrl } from "../constants";
 import FormData from "form-data";
@@ -57,32 +61,37 @@ async function uploadFile(
   return res.data;
 }
 
-/**
- * Receive the file from the client, and upload it to IPFS. Return the hash of the file, and its IPFS URL.
- * @param {ReadableStream} nftFile
- * @param {PinataPinOptions | undefined} options
- * @returns {Promise<PinataPinResponse>}
- */
-export async function pinFileToIPFS(
-  file: File,
-  options: PinataPinOptions,
-  JWT: string
-): Promise<PinataPinResponse> {
-  const ipfs = await uploadFile(file, options, JWT);
-  return ipfs;
-}
+export class PinataIPFSClient implements IPFSPinningService<PinataPinOptions> {
+  JWT: string;
+  constructor(JWT: string) {
+    this.JWT = JWT;
+  }
 
-/**
- * Pin JSON metadata to IPFS
- * @param {any} json
- * @param {PinataPinOptions | undefined} options
- * @returns {Promise<PinataPinResponse>}
- */
-export async function pinJSONToIPFS(
-  json: any,
-  options: PinataPinOptions,
-  JWT: string
-): Promise<PinataPinResponse> {
-  const result = await uploadJSON(json, options, JWT);
-  return result;
+  /**
+   * Receive the file from the client, and upload it to IPFS. Return the hash of the file, and its IPFS URL.
+   * @param {ReadableStream} nftFile
+   * @param {PinataPinOptions | undefined} options
+   * @returns {Promise<string>} IPFS Hash Content Identifier (CID)
+   */
+  async pinFileToIPFS(file: File, options?: PinataPinOptions): Promise<string> {
+    if (!options) {
+      throw new Error("Pinata options are required");
+    }
+    const ipfs = await uploadFile(file, options, this.JWT);
+    return ipfs.IpfsHash;
+  }
+
+  /**
+   * Pin JSON metadata to IPFS
+   * @param {any} json
+   * @param {PinataPinOptions | undefined} options
+   * @returns {Promise<string>} IPFS Hash Content Identifier (CID)
+   */
+  async pinJSONToIPFS(json: any, options?: PinataPinOptions): Promise<string> {
+    if (!options) {
+      throw new Error("Pinata options are required");
+    }
+    const result = await uploadJSON(json, options, this.JWT);
+    return result.IpfsHash;
+  }
 }
