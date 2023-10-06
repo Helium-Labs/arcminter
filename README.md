@@ -21,7 +21,6 @@ npm install @gradian/arcminter
 Example given below shows the process of minting an ARC3 digital asset, which should be similar for other types of asset. The code is thoroughly documented and typed for ease of use, and should be intuitive to follow.
 
 ```typescript
-const assetCreator = new NFTAssetMinter(algoClient, walletConnect.connector)
 import AssetMinter from "@gradian/arcminter";
 import { PinataPinOptions, PinataIPFSClient } from "@gradian/arcminter/api/types";
 
