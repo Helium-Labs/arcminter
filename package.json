@@ -1,6 +1,6 @@
 {
   "name": "@gradian/arcminter",
-  "version": "1.1.1",
+  "version": "1.2.1",
   "description": "Utility for minting and configuring ARC 3, 19, and 69 compliant non-fungible digital assets (NFTs) on the Algorand blockchain with support for a wide range of media types.",
   "scripts": {
     "test": "jest",
