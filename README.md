@@ -1,6 +1,6 @@
 # Gradian Arcminter
 
-Gradian Arcminter is a utility for minting and configuring ARC 3, 19, and 69 compliant non-fungible digital assets (NFTs) on the Algorand blockchain with support for a wide range of media types. The IPFS pinning service is dependency injected, and is generic. An IPFS client for Pinata is provided, with plans to add more overtime. It's primarily for browser use, however is also compatible with Node through polyfilling shims. ESM and CJS modules are provided in the built version. 
+Gradian Arcminter is a utility for minting and configuring ARC 3, 19, and 69 compliant non-fungible digital assets (NFTs) on the Algorand blockchain with support for a wide range of media types. The IPFS pinning service is dependency injected, and is generic. So far IPFS pinning clients are available for NFTStorage and Pinata. It's primarily for browser use, however is also compatible with Node through polyfilling shims. ESM and CJS modules are provided in the built version. 
 
 ⭐ Stars ⭐ and contributions are highly appreciated.
 
@@ -13,8 +13,8 @@ npm install @gradian/arcminter
 ## Features
 
 - Mint and configure ARC 3, 19, and 69 compliant NFTs and register them on the Algorand blockchain's public ledger.
-- Utilizes IPFS for decentralized file storage. Provides a client for Pinata, where other clients can be easily added and injected as a dependency. See example below.
-- Transaction signatures via WalletConnect, supplied as an injected dependency during ARC Minter instantiation. Intention to allow signing through a generic signer interface, which would allow other methods of signing like with a local pair of ECC keys.
+- Utilizes IPFS for decentralized file storage. Provides clients for Pinata and NFTStorage IPFS pinning services.
+- Transactions are signed with WalletConnect. Eventually the signer will be abstracted into a generic class to permit a wider range of signing options.
 
 ## Usage
 
