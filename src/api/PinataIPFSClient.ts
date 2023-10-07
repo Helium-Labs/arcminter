@@ -1,12 +1,39 @@
 import {
   IPFSPinningService,
-  PinataPinOptions,
-  PinataPinResponse,
 } from "./types";
 import axios from "axios";
 import { pinataFilePinUrl, pinataJSONPinUrl } from "../constants";
 import FormData from "form-data";
 import { File } from "buffer";
+
+interface PinataMetadata {
+  [key: string]: string | number | null;
+}
+
+interface PinataPinPolicyItem {
+  id: string;
+  desiredReplicationCount: number;
+}
+
+interface PinataOptions {
+  hostNodes?: string[] | undefined;
+  cidVersion?: 0 | 1;
+  wrapWithDirectory?: boolean;
+  customPinPolicy?: {
+    regions: PinataPinPolicyItem[];
+  };
+}
+
+interface PinataPinResponse {
+  IpfsHash: string;
+  PinSize: number;
+  Timestamp: string;
+}
+
+interface PinataPinOptions {
+  pinataMetadata?: PinataMetadata;
+  pinataOptions?: PinataOptions | undefined;
+}
 
 async function uploadJSON(
   obj: any,

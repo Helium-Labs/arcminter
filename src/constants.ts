@@ -8,3 +8,5 @@ export const pinataJSONPinUrl =
   "https://api.pinata.cloud/pinning/pinJSONToIPFS";
 export const pinataFilePinUrl =
   "https://api.pinata.cloud/pinning/pinFileToIPFS";
+
+export const nftStorageUploadUrl = "https://api.nft.storage/upload";
