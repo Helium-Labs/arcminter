@@ -101,15 +101,6 @@ export type Arc3Arc19Metadata = {
   [key: string]: any;
 };
 
-export type Arc19MetadataOptions = {
-  name: string;
-  description: string;
-  external_url: string;
-  // optional fields
-  properties?: any;
-  network: "mainnet" | "testnet";
-};
-
 export type CreateAssetTransactionConfig = {
   manager: string;
   total: number;
@@ -132,24 +123,6 @@ export type ConfigAsset = {
   rekeyTo?: string | undefined;
   assetIndex: number;
   strictEmptyAddressChecking: boolean;
-};
-
-export type NFTAsset = {
-  index: number;
-  arcMetadata: UniversalARCNFTMetadata;
-  params: {
-    clawback: string;
-    creator: string;
-    decimals: number;
-    defaultFrozen: boolean;
-    freeze: string;
-    manager: string;
-    name: string;
-    reserve: string;
-    total: number;
-    unitName: string;
-    url: string;
-  };
 };
 
 export type validJSONKey = string | number | symbol;
