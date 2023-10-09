@@ -21,6 +21,7 @@ import { File } from "buffer";
 import algosdk, { Algodv2 } from "algosdk";
 import AlgoUtil from "@gradian/util";
 import { IPFSPinningService } from "../api/types";
+import { SignTxnRequest } from "@gradian/util/dist/src/types";
 
 export default class AssetMinter<TOptions> {
   connector: any;
@@ -189,7 +190,7 @@ export default class AssetMinter<TOptions> {
         defaultFrozen: createAssetConfig.defaultFrozen,
       }
     );
-    const txns = await algoUtil.executeGroupTransaction(
+    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
       [transaction],
       [creatorWallet]
     );
@@ -253,7 +254,7 @@ export default class AssetMinter<TOptions> {
         defaultFrozen: createAssetConfig.defaultFrozen,
       }
     );
-    const txns = await algoUtil.executeGroupTransaction(
+    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
       [transaction],
       [creatorWallet]
     );
@@ -315,7 +316,7 @@ export default class AssetMinter<TOptions> {
         defaultFrozen: createAssetConfig.defaultFrozen,
       }
     );
-    const txns = await algoUtil.executeGroupTransaction(
+    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
       [transaction],
       [creatorWallet]
     );
@@ -379,7 +380,7 @@ export default class AssetMinter<TOptions> {
 
     const transaction =
       algosdk.makeAssetConfigTxnWithSuggestedParamsFromObject(configObj);
-    const txns = await algoUtil.executeGroupTransaction(
+    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
       [transaction],
       [creatorWallet]
     );
@@ -411,7 +412,7 @@ export default class AssetMinter<TOptions> {
     const creatorWallet = algoUtil.makeWallet(walletId);
     const transaction =
       algosdk.makeAssetConfigTxnWithSuggestedParamsFromObject(configObj);
-    const txns = await algoUtil.executeGroupTransaction(
+    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
       [transaction],
       [creatorWallet]
     );
@@ -461,7 +462,7 @@ export default class AssetMinter<TOptions> {
 
     const transaction =
       algosdk.makeAssetConfigTxnWithSuggestedParamsFromObject(configObj);
-    const txns = await algoUtil.executeGroupTransaction(
+    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
       [transaction],
       [creatorWallet]
     );
