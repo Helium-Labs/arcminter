@@ -21,8 +21,9 @@ npm install @gradian/arcminter
 Example given below shows the process of minting an ARC3 digital asset, which should be similar for other types of asset. The code is thoroughly documented and typed for ease of use, and should be intuitive to follow.
 
 ```typescript
-import AssetMinter from "@gradian/arcminter";
+import { NFTAssetMinter } from "@gradian/arcminter";
 import { PinataPinOptions, PinataIPFSClient } from "@gradian/arcminter/api/types";
+import { Signer } from '@gradian/util';
 
 // Values is an object, for example representing form fields
 const createAssetConfig: CreateAssetTransactionConfig = {
@@ -51,9 +52,12 @@ const options: Arc3Arc19Metadata = {
 // Create an instance of your preferred pinning service
 const pinata = new PinataIPFSClient("your_jwt");
 
-// inject the pinning service as a dependency into the arc minter
-// walletConnectConnector is a connector object from Wallet Connect, which is used for signing transactions
-const assetMinter = new AssetMinter(this.algoClient, pinata, walletConnectConnector)
+// Create a WalletConnectSigner, for signing transactions using the specified WalletConnect connector instance (connected wallet) with the 'sign' function.
+const walletConnectSigner: Signer.WalletConnectSigner = new Signer.WalletConnectSigner(algoConnect, walletConnect.connector)
+
+// inject the pinning service and signer as dependencys into the minter
+const nftAssetMinter = new NFTAssetMinter(this.algoClient, pinata, walletConnectSigner)
+
 // Create options that are specific to the pinning service, and provide to the pinned file when minting
 const pinataOptions: PinataPinOptions = {
     pinataOptions: {
@@ -64,8 +68,8 @@ const pinataOptions: PinataPinOptions = {
     },
 };
 
-// Mint the asset, with the index returned if successful. The provided walletConnect connector is the creator and is used for signing the asset creation transaction.
-const mintedAssetIndex = await assetMinter.minterCreateArc3Asset(
+// Mint the asset
+const mintedAssetIndex = await nftAssetMinter.minterCreateArc3Asset(
     createAssetConfig,
     options,
     file,
