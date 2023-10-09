@@ -58,7 +58,7 @@ const pinata = new PinataIPFSClient("your_jwt");
 // 'algoClient' is an algorand client (AlgodV2 instance)
 const walletConnectSigner: Signer.WalletConnectSigner = new Signer.WalletConnectSigner(algoClient, walletConnect.connector)
 
-// inject the pinning service and signer as dependencys into the minter
+// inject the pinning service and signer as dependencies into the minter
 const nftAssetMinter = new NFTAssetMinter(algoClient, pinata, walletConnectSigner)
 
 // Create options that are specific to the pinning service, and provide to the pinned file when minting
