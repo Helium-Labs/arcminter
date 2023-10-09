@@ -14,17 +14,17 @@ import {
   getSHA256Checksum,
   getTypeFromMimeType,
   setEmptyFieldsAsUndefined,
-  signArray,
 } from "../util";
 import { File } from "buffer";
 
 import algosdk, { Algodv2 } from "algosdk";
-import AlgoUtil from "@gradian/util";
 import { IPFSPinningService } from "../api/types";
 import { SignTxnRequest } from "@gradian/util/dist/src/types";
+import { Signer } from "@gradian/util/dist/src/signer/types";
+import { AlgorandUtil } from "@gradian/util";
 
 export default class AssetMinter<TOptions> {
-  connector: any;
+  signer: Signer;
   algoClient: Algodv2;
   pinningService: IPFSPinningService<TOptions>;
 
@@ -36,9 +36,9 @@ export default class AssetMinter<TOptions> {
   constructor(
     algoClient: Algodv2,
     pinningService: IPFSPinningService<TOptions>,
-    walletConnectConnector: any = undefined
+    transactionSigner: Signer
   ) {
-    this.connector = walletConnectConnector;
+    this.signer = transactionSigner;
     this.algoClient = algoClient;
     this.pinningService = pinningService;
   }
@@ -133,7 +133,7 @@ export default class AssetMinter<TOptions> {
     file: File;
     pinningOptions: TOptions;
   }): Promise<number> {
-    const walletId = this.getConnectedWallet();
+    const walletId = this.signer.getWalletAddress();
     if (!walletId) {
       throw new Error("Wallet not given");
     }
@@ -156,8 +156,8 @@ export default class AssetMinter<TOptions> {
       | image_mimetype
       | animation_url_mimetype;
     createAssetConfig = setEmptyFieldsAsUndefined(createAssetConfig);
-
-    const algoUtil = new AlgoUtil(this.algoClient);
+    
+    const algoUtil = new AlgorandUtil(this.algoClient);
     const arc69Mimetype = algoUtil.getARC69MimetypeFromMediaMimeType(
       options.mime_type
     );
@@ -190,11 +190,14 @@ export default class AssetMinter<TOptions> {
         defaultFrozen: createAssetConfig.defaultFrozen,
       }
     );
-    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
-      [transaction],
-      [creatorWallet]
-    );
-    const txResponse = await signArray(this.connector, txns, this.algoClient);
+    const txns: SignTxnRequest[] =
+      await algoUtil.generateGroupTransactionSigningRequest(
+        [transaction],
+        [creatorWallet]
+      );
+
+    const stxOrStxs = await this.signer.sign(txns);
+    const txResponse = await algoUtil.sendRawTransaction(stxOrStxs);
     return txResponse["asset-index"];
   }
 
@@ -217,7 +220,7 @@ export default class AssetMinter<TOptions> {
     file: File;
     pinningOptions: TOptions;
   }): Promise<number> {
-    const walletId = this.getConnectedWallet();
+    const walletId = this.signer.getWalletAddress();
     if (!walletId) {
       throw new Error("Wallet not given");
     }
@@ -228,7 +231,7 @@ export default class AssetMinter<TOptions> {
       pinningOptions
     );
     createAssetConfig = setEmptyFieldsAsUndefined(createAssetConfig);
-    const algoUtil = new AlgoUtil(this.algoClient);
+    const algoUtil = new AlgorandUtil(this.algoClient);
     const creatorWallet = algoUtil.makeWallet(walletId);
 
     const ipfsHashProperties = deriveIPFSHashProperties(pinataMetadataIPFSHash);
@@ -254,11 +257,13 @@ export default class AssetMinter<TOptions> {
         defaultFrozen: createAssetConfig.defaultFrozen,
       }
     );
-    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
-      [transaction],
-      [creatorWallet]
-    );
-    const txResponse = await signArray(this.connector, txns, this.algoClient);
+    const txns: SignTxnRequest[] =
+      await algoUtil.generateGroupTransactionSigningRequest(
+        [transaction],
+        [creatorWallet]
+      );
+    const stxOrStxs = await this.signer.sign(txns);
+    const txResponse = await algoUtil.sendRawTransaction(stxOrStxs);
 
     return txResponse["asset-index"];
   }
@@ -282,7 +287,7 @@ export default class AssetMinter<TOptions> {
     file: File;
     pinningOptions: TOptions;
   }): Promise<number> {
-    const walletId = this.getConnectedWallet();
+    const walletId = this.signer.getWalletAddress();
     if (!walletId) {
       throw new Error("Wallet not given");
     }
@@ -296,7 +301,7 @@ export default class AssetMinter<TOptions> {
     createAssetConfig = setEmptyFieldsAsUndefined(createAssetConfig);
 
     const url = `ipfs://${pinataMetadataIPFSHash}${ARC3_URL_SUFFIX}`;
-    const algoUtil = new AlgoUtil(this.algoClient);
+    const algoUtil = new AlgorandUtil(this.algoClient);
     const creatorWallet = algoUtil.makeWallet(walletId);
     const suggestedParams = await this.algoClient.getTransactionParams().do();
     // manager must be set for updates to metadata to be allowed
@@ -316,11 +321,14 @@ export default class AssetMinter<TOptions> {
         defaultFrozen: createAssetConfig.defaultFrozen,
       }
     );
-    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
-      [transaction],
-      [creatorWallet]
-    );
-    const txResponse = await signArray(this.connector, txns, this.algoClient);
+    const txns: SignTxnRequest[] =
+      await algoUtil.generateGroupTransactionSigningRequest(
+        [transaction],
+        [creatorWallet]
+      );
+    const stxOrStxs = await this.signer.sign(txns);
+    const txResponse = await algoUtil.sendRawTransaction(stxOrStxs);
+
     return txResponse["asset-index"];
   }
 
@@ -343,7 +351,7 @@ export default class AssetMinter<TOptions> {
     file: File;
     pinningOptions: TOptions;
   }) {
-    const walletId = this.getConnectedWallet();
+    const walletId = this.signer.getWalletAddress();
     if (!walletId) {
       throw new Error("Wallet not given");
     }
@@ -359,7 +367,7 @@ export default class AssetMinter<TOptions> {
     const suggestedParams: algosdk.SuggestedParams = await this.algoClient
       .getTransactionParams()
       .do();
-    const algoUtil = new AlgoUtil(this.algoClient);
+    const algoUtil = new AlgorandUtil(this.algoClient);
     const creatorWallet = algoUtil.makeWallet(walletId);
     let configObj = {
       suggestedParams,
@@ -380,12 +388,14 @@ export default class AssetMinter<TOptions> {
 
     const transaction =
       algosdk.makeAssetConfigTxnWithSuggestedParamsFromObject(configObj);
-    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
-      [transaction],
-      [creatorWallet]
-    );
+    const txns: SignTxnRequest[] =
+      await algoUtil.generateGroupTransactionSigningRequest(
+        [transaction],
+        [creatorWallet]
+      );
 
-    await signArray(this.connector, txns, this.algoClient);
+    const stxOrStxs = await this.signer.sign(txns);
+    await algoUtil.sendRawTransaction(stxOrStxs);
   }
 
   /**
@@ -394,7 +404,7 @@ export default class AssetMinter<TOptions> {
    * @returns {Promise<void>}
    */
   async minterConfigArc3Asset({ assetConfig }: { assetConfig: ConfigAsset }) {
-    const walletId = this.getConnectedWallet();
+    const walletId = this.signer.getWalletAddress();
     if (!walletId) {
       throw new Error("Wallet not given");
     }
@@ -408,16 +418,18 @@ export default class AssetMinter<TOptions> {
       ...assetConfig,
       strictEmptyAddressChecking: false,
     };
-    const algoUtil = new AlgoUtil(this.algoClient);
+    const algoUtil = new AlgorandUtil(this.algoClient);
     const creatorWallet = algoUtil.makeWallet(walletId);
     const transaction =
       algosdk.makeAssetConfigTxnWithSuggestedParamsFromObject(configObj);
-    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
-      [transaction],
-      [creatorWallet]
-    );
+    const txns: SignTxnRequest[] =
+      await algoUtil.generateGroupTransactionSigningRequest(
+        [transaction],
+        [creatorWallet]
+      );
 
-    await signArray(this.connector, txns, this.algoClient);
+    const stxOrStxs = await this.signer.sign(txns);
+    await algoUtil.sendRawTransaction(stxOrStxs);
   }
 
   /**
@@ -433,13 +445,13 @@ export default class AssetMinter<TOptions> {
     assetConfig: ConfigAsset;
     options: Arc69Metadata;
   }) {
-    const walletId = this.getConnectedWallet();
+    const walletId = this.signer.getWalletAddress();
     if (!walletId) {
       throw new Error("Wallet not given");
     }
 
     assetConfig = setEmptyFieldsAsUndefined(assetConfig);
-    const algoUtil = new AlgoUtil(this.algoClient);
+    const algoUtil = new AlgorandUtil(this.algoClient);
     const creatorWallet = algoUtil.makeWallet(walletId);
 
     const suggestedParams: algosdk.SuggestedParams = await this.algoClient
@@ -462,31 +474,13 @@ export default class AssetMinter<TOptions> {
 
     const transaction =
       algosdk.makeAssetConfigTxnWithSuggestedParamsFromObject(configObj);
-    const txns: SignTxnRequest[] = await algoUtil.generateGroupTransactionSigningRequest(
-      [transaction],
-      [creatorWallet]
-    );
-    await signArray(this.connector, txns, this.algoClient);
-  }
+    const txns: SignTxnRequest[] =
+      await algoUtil.generateGroupTransactionSigningRequest(
+        [transaction],
+        [creatorWallet]
+      );
 
-  /**
-   * Get the connected wallet
-   * @returns {string} The wallet address of the connected wallet
-   */
-  getConnectedWallet() {
-    if (!this.connector) {
-      return;
-    }
-    if (!this.connector?.accounts) {
-      return;
-    }
-    if (this.connector.accounts.length <= 0) {
-      return;
-    }
-    if (!this.connector.connected) {
-      return;
-    }
-    const walletId = this.connector.accounts[0];
-    return walletId;
+    const stxOrStxs = await this.signer.sign(txns);
+    await algoUtil.sendRawTransaction(stxOrStxs);
   }
 }

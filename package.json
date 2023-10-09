@@ -22,7 +22,7 @@
     }
   },
   "dependencies": {
-    "@gradian/util": "^1.1.7",
+    "@gradian/util": "^1.2.3",
     "@json-rpc-tools/utils": "^1.7.6",
     "algosdk": "^2.6.0",
     "axios": "^0.27.2",
