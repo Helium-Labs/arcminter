@@ -55,10 +55,11 @@ const options: Arc3Arc19Metadata = {
 const pinata = new PinataIPFSClient("your_jwt");
 
 // Create a WalletConnectSigner, for signing transactions using the specified WalletConnect connector instance (connected wallet) with the 'sign' function.
-const walletConnectSigner: Signer.WalletConnectSigner = new Signer.WalletConnectSigner(algoConnect, walletConnect.connector)
+// 'algoClient' is an algorand client (AlgodV2 instance)
+const walletConnectSigner: Signer.WalletConnectSigner = new Signer.WalletConnectSigner(algoClient, walletConnect.connector)
 
 // inject the pinning service and signer as dependencys into the minter
-const nftAssetMinter = new NFTAssetMinter(this.algoClient, pinata, walletConnectSigner)
+const nftAssetMinter = new NFTAssetMinter(algoClient, pinata, walletConnectSigner)
 
 // Create options that are specific to the pinning service, and provide to the pinned file when minting
 const pinataOptions: PinataPinOptions = {
