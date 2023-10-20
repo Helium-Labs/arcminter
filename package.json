@@ -1,6 +1,6 @@
 {
   "name": "@gradian/arcminter",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Utility for creating and configuring ARC 3, 19, and 69 compliant digital assets on the Algorand blockchain.",
   "scripts": {
     "test": "jest",

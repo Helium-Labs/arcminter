@@ -86,7 +86,7 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 
 ## Disclaimer
 
-This software is intended for educational purposes, and is not intended to faciliate any illegal activity. You assume all responsibility in using the open source software.
+**This software is intended for educational purposes, and is not intended to faciliate any illegal activity. You assume all responsibility in using this open source software.**
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
