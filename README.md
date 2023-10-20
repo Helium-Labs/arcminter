@@ -1,10 +1,6 @@
-# Gradian Arcminter
+# Arcminter
 
-Gradian Arcminter is a utility for minting and configuring ARC 3, 19, and 69 compliant non-fungible digital assets (NFTs) on the Algorand blockchain with support for a wide range of media types. The IPFS pinning service is dependency injected, and is generic. So far IPFS pinning clients are available for NFTStorage and Pinata. Asset minting and configuration transactions can be signed with WalletConnect or an ED25519 ECC key pair with a generic Signer class that's dependency injected instantiation. 
-
-Compatible with browser and Node environments.
-
-⭐ Stars ⭐ and contributions are highly appreciated.
+Arcminter is a utility for creating and configuring ARC 3, 19, and 69 compliant digital assets stored on Algorand, with support for a wide range of media types. Multiple signing and IPFS pinning options are available.
 
 ## Installation
 
@@ -14,13 +10,11 @@ npm install @gradian/arcminter
 
 ## Features
 
-- Mint and configure ARC 3, 19, and 69 compliant NFTs and register them on the Algorand blockchain's public ledger.
-- Utilizes IPFS for decentralized file storage. Provides clients for Pinata and NFTStorage IPFS pinning services.
-- A generic Transaction Signer is available, allowing signing with WalletConnect or a wallet ED25519 ECC key pair.
+- Create and configure ARC 3, 19, and 69 compliant digital assets stored on Algorand.
+- Supports Pinata and NFTStorage IPFS pinning services.
+- Authenticate transactions with WalletConnect, or X25519 keys.
 
 ## Usage
-
-Example given below shows the process of minting an ARC3 digital asset, which should be similar for other types of asset. The code is thoroughly documented and typed for ease of use, and should be intuitive to follow.
 
 ```typescript
 import { NFTAssetMinter } from "@gradian/arcminter";
@@ -82,8 +76,6 @@ const mintedAssetIndex = await nftAssetMinter.minterCreateArc3Asset(
 
 ## ARC3, ARC19, and ARC69 Algorand Request for Comment Standards
 
-ARC, short for Algorand Request for Comments, establishes standards outlining the characteristics of assets and operations on the Algorand blockchain. These standards provide developers with a uniform approach to develop on the Algorand blockchain. For a comprehensive understanding of each parameter provided to the ARC minter, kindly refer to the respective standards for each type of Non-Fungible Digital Asset:
-
 - [ARC3 Digital Assets](https://github.com/algorandfoundation/ARCs/blob/main/ARCs/arc-0003.md)
 - [ARC19 Digital Assets](https://github.com/algorandfoundation/ARCs/blob/main/ARCs/arc-0019.md)
 - [ARC69 Digital Assets](https://github.com/algorandfoundation/ARCs/blob/main/ARCs/arc-0069.md)
@@ -92,10 +84,9 @@ ARC, short for Algorand Request for Comments, establishes standards outlining th
 
 This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
 
-
-This `README.md` provides a comprehensive overview of the `@gradian/arcminter` package, showcasing its capabilities and features in an organized manner. The actual `README.md` might be extended with more examples, a detailed API reference, or a contribution guide.
-
 ## Disclaimer
+
+This software is intended for educational purposes, and is not intended to faciliate any illegal activity. You assume all responsibility in using the open source software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
